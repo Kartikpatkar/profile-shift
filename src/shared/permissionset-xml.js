@@ -90,6 +90,38 @@ export function generatePermissionSetXml(model) {
     out += '  </recordTypeVisibilities>\n';
   }
 
+  for (const fa of model?.flowAccesses || []) {
+    if (!fa?.flow || !fa?.enabled) continue;
+    out += '  <flowAccesses>\n';
+    out += xmlEl('flow', fa.flow, '    ');
+    out += xmlBool('enabled', Boolean(fa.enabled), '    ');
+    out += '  </flowAccesses>\n';
+  }
+
+  for (const eds of model?.externalDataSourceAccesses || []) {
+    if (!eds?.externalDataSource || !eds?.enabled) continue;
+    out += '  <externalDataSourceAccesses>\n';
+    out += xmlEl('externalDataSource', eds.externalDataSource, '    ');
+    out += xmlBool('enabled', Boolean(eds.enabled), '    ');
+    out += '  </externalDataSourceAccesses>\n';
+  }
+
+  for (const ecp of model?.externalCredentialPrincipalAccesses || []) {
+    if (!ecp?.externalCredentialPrincipal || !ecp?.enabled) continue;
+    out += '  <externalCredentialPrincipalAccesses>\n';
+    out += xmlEl('externalCredentialPrincipal', ecp.externalCredentialPrincipal, '    ');
+    out += xmlBool('enabled', Boolean(ecp.enabled), '    ');
+    out += '  </externalCredentialPrincipalAccesses>\n';
+  }
+
+  for (const cp of model?.customPermissions || []) {
+    if (!cp?.name || !cp?.enabled) continue;
+    out += '  <customPermissions>\n';
+    out += xmlEl('name', cp.name, '    ');
+    out += xmlBool('enabled', Boolean(cp.enabled), '    ');
+    out += '  </customPermissions>\n';
+  }
+
   out += '</PermissionSet>\n';
   return out;
 }

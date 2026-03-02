@@ -4,7 +4,15 @@ import { normalizeApiName } from './text.js';
 
 const DEFAULT_API_VERSION = '56.0';
 
-export async function deployPermissionSet({ instanceUrl, sessionId, permissionSetApiName, model, apiVersion = DEFAULT_API_VERSION }) {
+export async function deployPermissionSet({
+    instanceUrl,
+    sessionId,
+    permissionSetApiName,
+    model,
+    apiVersion = DEFAULT_API_VERSION,
+    extraFiles = [],
+    extraPackageTypes = {}
+}) {
     if (!instanceUrl || !sessionId) throw new Error('Missing instanceUrl/sessionId');
 
     const fullName = normalizeApiName(permissionSetApiName);
@@ -15,15 +23,24 @@ export async function deployPermissionSet({ instanceUrl, sessionId, permissionSe
     });
 
     const encoder = new TextEncoder();
+    const packageXml = buildPackageXml({
+        apiVersion,
+        typesToMembers: {
+            PermissionSet: [fullName],
+            ...(extraPackageTypes || {})
+        }
+    });
+
     const files = [
         {
             path: 'package.xml',
-            data: encoder.encode(buildPackageXml(fullName, apiVersion))
+            data: encoder.encode(packageXml)
         },
         {
             path: `permissionsets/${fullName}.permissionset-meta.xml`,
             data: encoder.encode(permissionSetXml)
-        }
+        },
+        ...(Array.isArray(extraFiles) ? extraFiles : [])
     ];
 
     const zipBytes = zipStore(files);
@@ -48,15 +65,36 @@ export async function deployPermissionSet({ instanceUrl, sessionId, permissionSe
     return final;
 }
 
-function buildPackageXml(permissionSetFullName, apiVersion) {
-    return `<?xml version="1.0" encoding="UTF-8"?>\n` +
-        `<Package xmlns="http://soap.sforce.com/2006/04/metadata">\n` +
-        `  <types>\n` +
-        `    <members>${escapeXml(permissionSetFullName)}</members>\n` +
-        `    <name>PermissionSet</name>\n` +
-        `  </types>\n` +
-        `  <version>${escapeXml(apiVersion)}</version>\n` +
-        `</Package>\n`;
+function buildPackageXml({ apiVersion, typesToMembers }) {
+    const types = typesToMembers && typeof typesToMembers === 'object' ? typesToMembers : {};
+    const typeNames = Object.keys(types);
+    typeNames.sort((a, b) => a.localeCompare(b));
+
+    let out = '';
+    out += `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    out += `<Package xmlns="http://soap.sforce.com/2006/04/metadata">\n`;
+
+    for (const typeName of typeNames) {
+        const membersRaw = Array.isArray(types[typeName]) ? types[typeName] : [];
+        const members = membersRaw
+            .map((m) => String(m || '').trim())
+            .filter(Boolean);
+        if (members.length === 0) continue;
+
+        // De-dupe members, stable-ish
+        const uniq = Array.from(new Set(members));
+
+        out += `  <types>\n`;
+        for (const m of uniq) {
+            out += `    <members>${escapeXml(m)}</members>\n`;
+        }
+        out += `    <name>${escapeXml(typeName)}</name>\n`;
+        out += `  </types>\n`;
+    }
+
+    out += `  <version>${escapeXml(apiVersion)}</version>\n`;
+    out += `</Package>\n`;
+    return out;
 }
 
 async function soapDeploy({ instanceUrl, sessionId, apiVersion, zipBase64 }) {

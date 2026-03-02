@@ -37,7 +37,12 @@ const sectionSearch = {
     apex: '',
     vf: '',
     tabs: '',
-    recordTypes: ''
+    recordTypes: '',
+    flows: '',
+    externalDataSources: '',
+    namedCredentials: '',
+    connectedApps: '',
+    customPermissions: ''
 };
 
 let selectedProfileId = null;
@@ -233,7 +238,12 @@ function updateCountsFromModel() {
         apex: latestModel?.apexClassAccesses?.length || 0,
         vf: latestModel?.visualforcePageAccesses?.length || 0,
         tabs: latestModel?.tabSettings?.length || 0,
-        recordTypes: latestModel?.recordTypeVisibilities?.length || 0
+        recordTypes: latestModel?.recordTypeVisibilities?.length || 0,
+        flows: latestModel?.flowAccesses?.length || 0,
+        externalDataSources: latestModel?.externalDataSourceAccesses?.length || 0,
+        namedCredentials: latestModel?.externalCredentialPrincipalAccesses?.length || 0,
+        connectedApps: latestModel?.assignedConnectedApps?.length || 0,
+        customPermissions: latestModel?.customPermissions?.length || 0
     };
     debugLog('Counts', counts);
 }
@@ -293,6 +303,16 @@ function filterRowsForSection(sectionKey, rows, q) {
             return query ? (rows || []).filter((r) => includesQuery(r?.tab, query)) : rows;
         case 'recordTypes':
             return query ? (rows || []).filter((r) => includesQuery(r?.recordType, query)) : rows;
+        case 'flows':
+            return query ? (rows || []).filter((r) => includesQuery(r?.flow, query)) : rows;
+        case 'externalDataSources':
+            return query ? (rows || []).filter((r) => includesQuery(r?.externalDataSource, query)) : rows;
+        case 'namedCredentials':
+            return query ? (rows || []).filter((r) => includesQuery(r?.externalCredentialPrincipal, query)) : rows;
+        case 'connectedApps':
+            return query ? (rows || []).filter((r) => includesQuery(r?.connectedApp, query)) : rows;
+        case 'customPermissions':
+            return query ? (rows || []).filter((r) => includesQuery(r?.name, query)) : rows;
         default:
             return rows;
     }
@@ -318,6 +338,11 @@ function buildSelectAllControl(sectionKey, displayRows) {
             case 'system':
             case 'apex':
             case 'vf':
+            case 'flows':
+            case 'externalDataSources':
+            case 'namedCredentials':
+            case 'connectedApps':
+            case 'customPermissions':
                 return Boolean(r.enabled);
             case 'recordTypes':
                 return Boolean(r.visible);
@@ -357,6 +382,11 @@ function buildSelectAllControl(sectionKey, displayRows) {
                 case 'system':
                 case 'apex':
                 case 'vf':
+                case 'flows':
+                case 'externalDataSources':
+                case 'namedCredentials':
+                case 'connectedApps':
+                case 'customPermissions':
                     r.enabled = next;
                     break;
                 case 'recordTypes':
@@ -595,8 +625,247 @@ function getSections() {
             title: 'Record Type Visibilities',
             getRows: () => latestModel?.recordTypeVisibilities || [],
             render: renderRecordTypesTable
+        },
+        {
+            key: 'flows',
+            short: 'Flows',
+            title: 'Flow Access',
+            getRows: () => latestModel?.flowAccesses || [],
+            render: renderFlowAccessTable
+        },
+        {
+            key: 'externalDataSources',
+            short: 'Ext Data',
+            title: 'External Data Source Access',
+            getRows: () => latestModel?.externalDataSourceAccesses || [],
+            render: renderExternalDataSourceAccessTable
+        },
+        {
+            key: 'namedCredentials',
+            short: 'Named Creds',
+            title: 'Named Credential Access',
+            getRows: () => latestModel?.externalCredentialPrincipalAccesses || [],
+            render: renderNamedCredentialAccessTable
+        },
+        {
+            key: 'connectedApps',
+            short: 'Conn Apps',
+            title: 'Assigned Connected Apps',
+            getRows: () => latestModel?.assignedConnectedApps || [],
+            render: renderConnectedAppsTable
+        },
+        {
+            key: 'customPermissions',
+            short: 'Custom Perms',
+            title: 'Custom Permissions',
+            getRows: () => latestModel?.customPermissions || [],
+            render: renderCustomPermissionsTable
         }
     ];
+}
+
+function renderFlowAccessTable(rows, q = '') {
+    const displayRows = filterRowsForSection('flows', rows, q);
+    const table = el('table');
+    table.appendChild(el('thead', {}, [
+        el('tr', {}, [
+            el('th', { text: 'Flow' }),
+            headerToggleCell('Enabled', displayRows, (r) => r.enabled, (r, v) => { r.enabled = v; })
+        ])
+    ]));
+
+    const body = el('tbody');
+    displayRows.forEach((p) => {
+        const tr = el('tr');
+        tr.appendChild(el('td', { class: 'cellMono', text: p.flow || '' }));
+        tr.appendChild(checkboxCell(p.enabled, (v) => { p.enabled = v; markDirty(); }));
+        body.appendChild(tr);
+    });
+
+    // Add new Flow access row (free-text)
+    const existing = new Set((rows || []).map((r) => String(r.flow || '').toLowerCase()).filter(Boolean));
+    const addTr = el('tr');
+    const input = el('input', { class: 'sel', type: 'text', placeholder: 'Flow API name…' });
+    const addBtn = el('button', {
+        class: 'miniBtn',
+        type: 'button',
+        text: 'Add',
+        onclick: () => {
+            const name = String(input.value || '').trim();
+            if (!name) return;
+            const key = name.toLowerCase();
+            if (existing.has(key)) return;
+            rows.push({ flow: name, enabled: true });
+            input.value = '';
+            markDirty();
+            renderEditor();
+        }
+    });
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addBtn.click();
+        }
+    });
+    addTr.appendChild(el('td', {}, [input]));
+    addTr.appendChild(el('td', {}, [addBtn]));
+    body.appendChild(addTr);
+
+    table.appendChild(body);
+    return table;
+}
+
+function renderExternalDataSourceAccessTable(rows, q = '') {
+    const displayRows = filterRowsForSection('externalDataSources', rows, q);
+    const table = el('table');
+    table.appendChild(el('thead', {}, [
+        el('tr', {}, [
+            el('th', { text: 'External Data Source' }),
+            headerToggleCell('Enabled', displayRows, (r) => r.enabled, (r, v) => { r.enabled = v; })
+        ])
+    ]));
+
+    const body = el('tbody');
+    displayRows.forEach((p) => {
+        const tr = el('tr');
+        tr.appendChild(el('td', { class: 'cellMono', text: p.externalDataSource || '' }));
+        tr.appendChild(checkboxCell(p.enabled, (v) => { p.enabled = v; markDirty(); }));
+        body.appendChild(tr);
+    });
+
+    // Add new External Data Source access row (free-text)
+    const existing = new Set((rows || []).map((r) => String(r.externalDataSource || '').toLowerCase()).filter(Boolean));
+    const addTr = el('tr');
+    const input = el('input', { class: 'sel', type: 'text', placeholder: 'External Data Source name…' });
+    const addBtn = el('button', {
+        class: 'miniBtn',
+        type: 'button',
+        text: 'Add',
+        onclick: () => {
+            const name = String(input.value || '').trim();
+            if (!name) return;
+            const key = name.toLowerCase();
+            if (existing.has(key)) return;
+            rows.push({ externalDataSource: name, enabled: true });
+            input.value = '';
+            markDirty();
+            renderEditor();
+        }
+    });
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addBtn.click();
+        }
+    });
+    addTr.appendChild(el('td', {}, [input]));
+    addTr.appendChild(el('td', {}, [addBtn]));
+    body.appendChild(addTr);
+
+    table.appendChild(body);
+    return table;
+}
+
+function renderNamedCredentialAccessTable(rows, q = '') {
+    const displayRows = filterRowsForSection('namedCredentials', rows, q);
+    const table = el('table');
+    table.appendChild(el('thead', {}, [
+        el('tr', {}, [
+            el('th', { text: 'External Credential Principal' }),
+            headerToggleCell('Enabled', displayRows, (r) => r.enabled, (r, v) => { r.enabled = v; })
+        ])
+    ]));
+
+    const body = el('tbody');
+    displayRows.forEach((p) => {
+        const tr = el('tr');
+        tr.appendChild(el('td', { class: 'cellMono', text: p.externalCredentialPrincipal || '' }));
+        tr.appendChild(checkboxCell(p.enabled, (v) => { p.enabled = v; markDirty(); }));
+        body.appendChild(tr);
+    });
+
+    // Add new External Credential Principal access row (free-text)
+    const existing = new Set((rows || []).map((r) => String(r.externalCredentialPrincipal || '').toLowerCase()).filter(Boolean));
+    const addTr = el('tr');
+    const input = el('input', { class: 'sel', type: 'text', placeholder: 'myExternalCredential-myPrincipal…' });
+    const addBtn = el('button', {
+        class: 'miniBtn',
+        type: 'button',
+        text: 'Add',
+        onclick: () => {
+            const name = String(input.value || '').trim();
+            if (!name) return;
+            const key = name.toLowerCase();
+            if (existing.has(key)) return;
+            rows.push({ externalCredentialPrincipal: name, enabled: true });
+            input.value = '';
+            markDirty();
+            renderEditor();
+        }
+    });
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addBtn.click();
+        }
+    });
+    addTr.appendChild(el('td', {}, [input]));
+    addTr.appendChild(el('td', {}, [addBtn]));
+    body.appendChild(addTr);
+
+    table.appendChild(body);
+    return table;
+}
+
+function renderConnectedAppsTable(rows, q = '') {
+    const displayRows = filterRowsForSection('connectedApps', rows, q);
+    const table = el('table');
+    table.appendChild(el('thead', {}, [
+        el('tr', {}, [
+            el('th', { text: 'Connected App' }),
+            headerToggleCell('Assigned', displayRows, (r) => r.enabled, (r, v) => { r.enabled = v; })
+        ])
+    ]));
+
+    const body = el('tbody');
+    displayRows.forEach((p) => {
+        const tr = el('tr');
+        tr.appendChild(el('td', { class: 'cellMono', text: p.connectedApp || '' }));
+        tr.appendChild(checkboxCell(p.enabled, (v) => { p.enabled = v; markDirty(); }));
+        body.appendChild(tr);
+    });
+
+    // Add new Connected App assignment row (free-text)
+    const existing = new Set((rows || []).map((r) => String(r.connectedApp || '').toLowerCase()).filter(Boolean));
+    const addTr = el('tr');
+    const input = el('input', { class: 'sel', type: 'text', placeholder: 'Connected App API name…' });
+    const addBtn = el('button', {
+        class: 'miniBtn',
+        type: 'button',
+        text: 'Add',
+        onclick: () => {
+            const name = String(input.value || '').trim();
+            if (!name) return;
+            const key = name.toLowerCase();
+            if (existing.has(key)) return;
+            rows.push({ connectedApp: name, enabled: true });
+            input.value = '';
+            markDirty();
+            renderEditor();
+        }
+    });
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addBtn.click();
+        }
+    });
+    addTr.appendChild(el('td', {}, [input]));
+    addTr.appendChild(el('td', {}, [addBtn]));
+    body.appendChild(addTr);
+
+    table.appendChild(body);
+    return table;
 }
 
 function checkboxCell(value, onChange) {
@@ -697,6 +966,27 @@ function renderUserPermissionsTable(rows, q = '') {
 
     const body = el('tbody');
     displayRows.forEach((p, idx) => {
+        const tr = el('tr');
+        tr.appendChild(el('td', { class: 'cellMono', text: p.name || '' }));
+        tr.appendChild(checkboxCell(p.enabled, (v) => { p.enabled = v; markDirty(); }));
+        body.appendChild(tr);
+    });
+    table.appendChild(body);
+    return table;
+}
+
+function renderCustomPermissionsTable(rows, q = '') {
+    const displayRows = filterRowsForSection('customPermissions', rows, q);
+    const table = el('table');
+    table.appendChild(el('thead', {}, [
+        el('tr', {}, [
+            el('th', { text: 'Custom Permission' }),
+            headerToggleCell('Enabled', displayRows, (r) => r.enabled, (r, v) => { r.enabled = v; })
+        ])
+    ]));
+
+    const body = el('tbody');
+    displayRows.forEach((p) => {
         const tr = el('tr');
         tr.appendChild(el('td', { class: 'cellMono', text: p.name || '' }));
         tr.appendChild(checkboxCell(p.enabled, (v) => { p.enabled = v; markDirty(); }));

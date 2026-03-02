@@ -18,6 +18,10 @@ export function profileRecordXmlToPermissionSetModel({
   const visualforcePageAccesses = parsePageAccesses(recordXml);
   const tabSettings = parseTabVisibilities(recordXml);
   const recordTypeVisibilities = parseRecordTypeVisibilities(recordXml);
+  const flowAccesses = parseFlowAccesses(recordXml);
+  const externalDataSourceAccesses = parseExternalDataSourceAccesses(recordXml);
+  const externalCredentialPrincipalAccesses = parseExternalCredentialPrincipalAccesses(recordXml);
+  const customPermissions = parseCustomPermissions(recordXml);
 
   return {
     source: {
@@ -39,8 +43,77 @@ export function profileRecordXmlToPermissionSetModel({
     apexClassAccesses,
     visualforcePageAccesses,
     tabSettings,
-    recordTypeVisibilities
+    recordTypeVisibilities,
+    flowAccesses,
+    externalDataSourceAccesses,
+    externalCredentialPrincipalAccesses,
+    // Connected app assignments are not represented on Profile/PermissionSet metadata.
+    // This list is user-managed in the UI and applied (optionally) during deploy by
+    // updating ConnectedApp metadata.
+    assignedConnectedApps: [],
+    customPermissions
   };
+}
+
+function parseFlowAccesses(xml) {
+  return extractBlocks(xml, 'flowAccesses')
+    .map((b) => {
+      const flow = getTagValue(b, 'flow');
+      const enabled = getBool(b, 'enabled');
+      if (!flow) return null;
+      return { flow, enabled: Boolean(enabled) };
+    })
+    .filter(Boolean)
+    .sort((a, b) => String(a.flow).localeCompare(String(b.flow), undefined, { sensitivity: 'base' }));
+}
+
+function parseExternalDataSourceAccesses(xml) {
+  return extractBlocks(xml, 'externalDataSourceAccesses')
+    .map((b) => {
+      const externalDataSource = getTagValue(b, 'externalDataSource');
+      const enabled = getBool(b, 'enabled');
+      if (!externalDataSource) return null;
+      return { externalDataSource, enabled: Boolean(enabled) };
+    })
+    .filter(Boolean)
+    .sort((a, b) => String(a.externalDataSource).localeCompare(String(b.externalDataSource), undefined, { sensitivity: 'base' }));
+}
+
+function parseExternalCredentialPrincipalAccesses(xml) {
+  return extractBlocks(xml, 'externalCredentialPrincipalAccesses')
+    .map((b) => {
+      const externalCredentialPrincipal = getTagValue(b, 'externalCredentialPrincipal');
+      const enabled = getBool(b, 'enabled');
+      if (!externalCredentialPrincipal) return null;
+      return { externalCredentialPrincipal, enabled: Boolean(enabled) };
+    })
+    .filter(Boolean)
+    .sort((a, b) => String(a.externalCredentialPrincipal).localeCompare(String(b.externalCredentialPrincipal), undefined, { sensitivity: 'base' }));
+}
+
+function parseCustomPermissions(xml) {
+  // Seen in PermissionSet as <customPermissions><name>..</name><enabled>..</enabled></customPermissions>
+  // Profile metadata can vary; we accept either <customPermissions> or <customPermissionAccesses> blocks.
+  const blocks = [
+    ...extractBlocks(xml, 'customPermissions'),
+    ...extractBlocks(xml, 'customPermissionAccesses')
+  ];
+
+  const out = [];
+  const seen = new Set();
+
+  for (const b of blocks) {
+    const name = getTagValue(b, 'name') || getTagValue(b, 'customPermission');
+    if (!name) continue;
+    const enabled = getBool(b, 'enabled');
+    const key = String(name).toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ name, enabled: Boolean(enabled) });
+  }
+
+  out.sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: 'base' }));
+  return out;
 }
 
 function parseObjectPermissions(xml) {

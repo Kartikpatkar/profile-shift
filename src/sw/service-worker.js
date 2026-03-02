@@ -4,6 +4,7 @@ import { generatePermissionSetXml } from '../shared/permissionset-xml.js';
 import { deployPermissionSet } from '../shared/metadata-deploy.js';
 import { soapListMetadata, soapReadMetadata } from '../shared/metadata-read.js';
 import { profileRecordXmlToPermissionSetModel } from '../shared/profile-metadata.js';
+import { xmlEscape } from '../shared/xml.js';
 
 const connector = new SalesforceConnector({
   cacheTTL: 15_000,
@@ -263,11 +264,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
           const instanceUrl = normalizeInstanceUrl(org.instanceUrl, sender?.tab?.url || '');
 
+          const connectedAppsToAssign = (model?.assignedConnectedApps || [])
+            .map((r) => ({
+              connectedApp: String(r?.connectedApp || '').trim(),
+              enabled: Boolean(r?.enabled)
+            }))
+            .filter((r) => r.connectedApp && r.enabled)
+            .map((r) => r.connectedApp);
+
+          const extraFiles = connectedAppsToAssign.length
+            ? await buildConnectedAppAssignmentFiles({
+              instanceUrl,
+              sessionId: org.sessionId,
+              apiVersion: '56.0',
+              permissionSetFullName: permissionSetApiName,
+              connectedAppFullNames: connectedAppsToAssign
+            })
+            : [];
+
           const result = await deployPermissionSet({
             instanceUrl,
             sessionId: org.sessionId,
             permissionSetApiName,
-            model
+            model,
+            extraFiles,
+            extraPackageTypes: connectedAppsToAssign.length ? { ConnectedApp: connectedAppsToAssign } : {}
           });
 
           if (!result?.done) {
@@ -497,4 +518,105 @@ function mergeSystemPermissions(current, allNames) {
   for (const v of map.values()) out.push(v);
   out.sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: 'base' }));
   return out;
+}
+
+async function buildConnectedAppAssignmentFiles({
+  instanceUrl,
+  sessionId,
+  apiVersion,
+  permissionSetFullName,
+  connectedAppFullNames
+}) {
+  const encoder = new TextEncoder();
+  const permName = String(permissionSetFullName || '').trim();
+  if (!permName) throw new Error('Missing permissionSetFullName for ConnectedApp assignment');
+
+  // De-dupe, preserve order
+  const apps = [];
+  const seen = new Set();
+  for (const n of connectedAppFullNames || []) {
+    const s = String(n || '').trim();
+    if (!s) continue;
+    const k = s.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    apps.push(s);
+  }
+
+  const out = [];
+  for (const appFullName of apps) {
+    const read = await soapReadMetadata({
+      instanceUrl,
+      sessionId,
+      apiVersion,
+      metadataType: 'ConnectedApp',
+      fullNames: [appFullName]
+    });
+
+    if (!read.recordXml) {
+      throw new Error(`Metadata readMetadata(ConnectedApp) returned no records for fullName "${appFullName}".`);
+    }
+
+    const root = extractXmlRootBlock(read.recordXml, 'ConnectedApp');
+    if (!root) {
+      throw new Error(`Could not locate <ConnectedApp> metadata XML for "${appFullName}".`);
+    }
+
+    // permissionSetName/profileName only apply when admin-approved is enabled.
+    if (!/<isAdminApproved>\s*true\s*<\/isAdminApproved>/i.test(root)) {
+      throw new Error(`Connected App "${appFullName}" is not admin-approved (oauthConfig.isAdminApproved=true). It can't be assigned via permission sets in metadata.`);
+    }
+
+    const patched = addPermissionSetToConnectedAppXml(root, permName);
+    const fileXml = `<?xml version="1.0" encoding="UTF-8"?>\n${patched.trim()}\n`;
+
+    out.push({
+      path: `connectedApps/${appFullName}.connectedApp-meta.xml`,
+      data: encoder.encode(fileXml)
+    });
+  }
+
+  return out;
+}
+
+function extractXmlRootBlock(xml, rootTag) {
+  const s = String(xml || '');
+  const re = new RegExp(`<${rootTag}\\b[\\s\\S]*?<\\/${rootTag}>`, 'i');
+  const m = s.match(re);
+  return m ? m[0] : null;
+}
+
+function addPermissionSetToConnectedAppXml(connectedAppXml, permissionSetFullName) {
+  const xml = String(connectedAppXml || '');
+  const perm = String(permissionSetFullName || '').trim();
+  if (!perm) return xml;
+
+  const tagRe = /<permissionSetName\b[^>]*>([\s\S]*?)<\/permissionSetName>/i;
+  const m = xml.match(tagRe);
+
+  if (m) {
+    const existingRaw = String(m[1] || '');
+    const existing = existingRaw
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const exists = existing.some((s) => s.toLowerCase() === perm.toLowerCase());
+    const next = exists ? existing : [...existing, perm];
+    const nextText = next.join('\n');
+
+    return xml.replace(tagRe, `<permissionSetName>${xmlEscape(nextText)}</permissionSetName>`);
+  }
+
+  // No existing <permissionSetName>; insert a new one.
+  const insert = `    <permissionSetName>${xmlEscape(perm)}</permissionSetName>`;
+
+  // Prefer inserting right after <label> if present.
+  const labelRe = /(<label\b[^>]*>[\s\S]*?<\/label>)/i;
+  if (labelRe.test(xml)) {
+    return xml.replace(labelRe, `$1\n${insert}`);
+  }
+
+  // Fallback: insert before closing root.
+  return xml.replace(/<\/ConnectedApp>/i, `${insert}\n</ConnectedApp>`);
 }
