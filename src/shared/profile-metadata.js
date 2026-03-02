@@ -88,8 +88,8 @@ function parseUserPermissions(xml) {
     .map((b) => {
       const name = getTagValue(b, 'name');
       const enabled = getBool(b, 'enabled');
-      if (!name || !enabled) return null;
-      return { name, enabled: true };
+      if (!name) return null;
+      return { name, enabled: Boolean(enabled) };
     })
     .filter(Boolean);
 }

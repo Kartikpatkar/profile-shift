@@ -10,6 +10,10 @@ const connector = new SalesforceConnector({
   currentWindowOnly: true
 });
 
+// Cache of system permission API names per org (derived from Tooling API describe).
+// Keyed by instanceUrl.
+const systemPermNamesCache = new Map();
+
 chrome.action.onClicked.addListener(async (tab) => {
   try {
     if (tab?.id) {
@@ -213,6 +217,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             profileId,
             profileName
           });
+
+          // Metadata often only includes enabled System Permissions; derive disabled ones by
+          // enumerating all PermissionSet Permissions* fields and marking missing as enabled:false.
+          try {
+            const allSystemPermNames = await toolingDescribeSystemPermissionNames({
+              instanceUrl,
+              sessionId,
+              apiVersion: '56.0'
+            });
+            extraction.userPermissions = mergeSystemPermissions(extraction.userPermissions, allSystemPermNames);
+          } catch (e) {
+            console.warn('[ProfileShift] Failed to derive disabled System Permissions via Tooling API describe.', e);
+          }
 
           sendResponse({ ok: true, extraction });
           return;
@@ -422,4 +439,62 @@ async function toolingQueryAllNames({ instanceUrl, sessionId, apiVersion, soql }
   const uniq = Array.from(new Set(names));
   uniq.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
   return uniq;
+}
+
+async function toolingDescribeSystemPermissionNames({ instanceUrl, sessionId, apiVersion }) {
+  const key = String(instanceUrl || '').trim();
+  const cached = systemPermNamesCache.get(key);
+  if (cached && Date.now() - cached.at < 60 * 60 * 1000 && Array.isArray(cached.names) && cached.names.length) {
+    return cached.names;
+  }
+
+  const url = `${instanceUrl}/services/data/v${apiVersion}/tooling/sobjects/PermissionSet/describe`;
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${sessionId}`,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(`Tooling describe(PermissionSet) failed (HTTP ${res.status}). ${text.slice(0, 200)}`);
+  }
+
+  const data = JSON.parse(text);
+  const fields = Array.isArray(data?.fields) ? data.fields : [];
+
+  const names = fields
+    .filter((f) => f && typeof f.name === 'string' && f.name.startsWith('Permissions') && String(f.type || '').toLowerCase() === 'boolean')
+    .map((f) => String(f.name).slice('Permissions'.length))
+    .filter(Boolean);
+
+  const uniq = Array.from(new Set(names));
+  uniq.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
+  systemPermNamesCache.set(key, { at: Date.now(), names: uniq });
+  return uniq;
+}
+
+function mergeSystemPermissions(current, allNames) {
+  const out = [];
+  const map = new Map();
+
+  for (const p of current || []) {
+    const name = String(p?.name || '').trim();
+    if (!name) continue;
+    map.set(name.toLowerCase(), { name, enabled: Boolean(p?.enabled) });
+  }
+
+  for (const name of allNames || []) {
+    const n = String(name || '').trim();
+    if (!n) continue;
+    const k = n.toLowerCase();
+    if (!map.has(k)) map.set(k, { name: n, enabled: false });
+  }
+
+  for (const v of map.values()) out.push(v);
+  out.sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: 'base' }));
+  return out;
 }
