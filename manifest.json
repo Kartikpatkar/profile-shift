@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "ProfileShift – Salesforce Profile to Permission Set",
+  "version": "0.1.0",
+  "description": "Convert Salesforce Profile permissions into deployable Permission Set metadata. Privacy-first, client-side.",
+  "action": {
+    "default_title": "ProfileShift"
+  },
+  "background": {
+    "service_worker": "src/sw/service-worker.js",
+    "type": "module"
+  },
+  "permissions": ["tabs", "storage", "cookies"],
+  "host_permissions": [
+    "https://*.my.salesforce.com/*",
+    "https://*.lightning.force.com/*",
+    "https://*.salesforce.com/*",
+    "https://*.force.com/*",
+    "https://*.salesforce-setup.com/*",
+    "https://*.my.salesforce-setup.com/*",
+    "https://*.visual.force.com/*",
+    "https://login.salesforce.com/*",
+    "https://test.salesforce.com/*"
+  ]
+}
