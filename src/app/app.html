@@ -1,85 +1,64 @@
 <!doctype html>
 <html lang="en">
-  <head>
+
+<head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ProfileShift</title>
     <link rel="stylesheet" href="./app.css" />
-  </head>
-  <body>
+</head>
+
+<body>
     <header class="topbar">
-      <div>
-        <div class="brand">ProfileShift</div>
-        <div class="sub">Select a Profile → Permission Set</div>
-      </div>
-      <div class="topbarRight">
-        <div class="pill" id="orgPill">Org: —</div>
-        <div class="pill" id="authPill">Checking…</div>
-      </div>
+        <div>
+            <div class="brand">ProfileShift</div>
+            <div class="sub">Select a Profile → Permission Set</div>
+        </div>
+        <div class="topbarRight">
+            <div class="pill" id="orgPill">Org: —</div>
+            <div class="pill" id="authPill">Checking…</div>
+        </div>
     </header>
 
     <main class="main">
-      <div class="splitRow">
-        <section class="card cardPrimary">
-          <div class="row">
-            <label class="label" for="profileInput">Profile (search)</label>
-            <input id="profileInput" class="input" type="text" list="profilesList" placeholder="Type to search profiles…" disabled />
-            <datalist id="profilesList"></datalist>
-            <div class="help">Type a profile name and pick from the list.</div>
-          </div>
+        <div class="splitRow">
+            <section class="card cardPrimary">
+                <div class="rowSplit">
+                    <div class="field">
+                        <label class="label" for="profileInput">Profile (search)</label>
+                        <input id="profileInput" class="input" type="text" list="profilesList"
+                            placeholder="Type to search profiles…" disabled />
+                        <datalist id="profilesList"></datalist>
+                        <!-- <div class="help">Type a profile name and pick from the list.</div> -->
+                    </div>
 
-          <div class="row">
-            <label class="label" for="permissionSetName">Permission Set API Name</label>
-            <input id="permissionSetName" class="input" type="text" placeholder="e.g. Admin_Delta" disabled />
-            <div class="help">Used for export filename and deploy fullName.</div>
-          </div>
+                    <div class="field">
+                        <label class="label" for="permissionSetName">Permission Set API Name</label>
+                        <input id="permissionSetName" class="input" type="text" placeholder="e.g. Admin_Delta" disabled />
+                        <!-- <div class="help">Used for export filename and deploy fullName.</div> -->
+                    </div>
+                </div>
 
-          <div class="row">
-            <button class="btn" id="btnConvert" disabled>Convert to Permission Set</button>
-            <button class="btn btn-secondary" id="btnExport" disabled>Export Permission Set XML</button>
-            <button class="btn btn-secondary" id="btnDeploy" disabled>Deploy via Metadata API</button>
-          </div>
+                <div class="btnRow">
+                    <button class="btn" id="btnConvert" disabled>Convert to Permission Set</button>
+                    <button class="btn btn-secondary" id="btnExport" disabled>Export Permission Set XML</button>
+                    <button class="btn btn-secondary" id="btnDeploy" disabled>Deploy via Metadata API</button>
+                </div>
+            </section>
+        </div>
 
-          <div class="status" id="status"></div>
+        <section class="card" id="editor" hidden>
+            <div class="h">Edit Permissions</div>
+
+            <div class="tabbar" id="tabBar" role="tablist" aria-label="Permission sections"></div>
+            <div id="tabPanel" class="tabPanel"></div>
         </section>
-
-        <section class="card cardSecondary" id="results" hidden>
-          <div class="h">Extraction Summary</div>
-          <div class="kv">
-            <div class="k">Profile</div>
-            <div class="v" id="profileName">—</div>
-            <div class="k">Objects</div>
-            <div class="v" id="objCount">—</div>
-            <div class="k">Fields</div>
-            <div class="v" id="fieldCount">—</div>
-            <div class="k">Sys Perms</div>
-            <div class="v" id="sysPermCount">—</div>
-            <div class="k">Apex</div>
-            <div class="v" id="apexCount">—</div>
-            <div class="k">VF</div>
-            <div class="v" id="vfCount">—</div>
-            <div class="k">Tabs</div>
-            <div class="v" id="tabCount">—</div>
-            <div class="k">Rec Types</div>
-            <div class="v" id="rtCount">—</div>
-          </div>
-
-          <details class="details">
-            <summary>Debug</summary>
-            <pre class="pre" id="debug">—</pre>
-          </details>
-        </section>
-      </div>
-
-      <section class="card" id="editor" hidden>
-        <div class="h">Edit Permissions</div>
-        <div class="help">Toggle values or remove rows before export/deploy.</div>
-
-        <div class="tabbar" id="tabBar" role="tablist" aria-label="Permission sections"></div>
-        <div id="tabPanel" class="tabPanel"></div>
-      </section>
     </main>
 
+    <div id="toastContainer" class="toastContainer" aria-live="polite" aria-atomic="true"></div>
+
+    <script src="../shared/toast.js"></script>
     <script src="./app.js" type="module"></script>
-  </body>
+</body>
+
 </html>
