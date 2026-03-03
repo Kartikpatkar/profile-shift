@@ -1,46 +1,266 @@
-# ProfileShift
+# 📄 ProfileShift – Salesforce Profile to Permission Set Converter
 
-ProfileShift is a privacy-first Chrome Extension that helps Salesforce Admins and Developers modernize their org security model by converting **Profile** permissions (from Salesforce Setup UI) into a deployable **Permission Set**.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](#)
+[![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-green.svg?logo=google-chrome)](#)
+[![Manifest V3](https://img.shields.io/badge/Manifest-V3-blueviolet.svg)](#)
 
-This project is:
-- 100% client-side (no external servers)
-- Open source (MIT)
-- Built for Manifest V3
+> **Tagline**: *Modernize Salesforce security — convert Profiles into minimal Permission Sets.*
 
-## What it does (MVP)
-- Lists Profiles from your org and lets you pick one to convert
-- Reads Profile permissions via Salesforce **Metadata API** (`listMetadata(Profile)` + `readMetadata(Profile)`)
-- Generates a Permission Set XML (`.permissionset-meta.xml`)
-- (Optional in MVP) Deploys the Permission Set via Metadata API using your existing browser session
+---
 
-## Privacy
-- No analytics
-- No tracking
-- No third-party requests
-- No data is sent anywhere except to **your Salesforce org** (when you choose to deploy)
+## ✨ Overview
 
-## How it works
-- Click the extension icon to open the Profile Picker in a new tab.
-- The app loads all Profiles from your org and resolves the correct metadata `fullName` (important for standard profiles like “System Administrator”).
-- Select a Profile to extract permissions via Metadata API.
-- Review/edit permissions in the tables, set a Permission Set API Name, then export or deploy.
+**ProfileShift** is a modern, privacy-first **Chrome Extension (Manifest V3)** that helps Salesforce Admins and Developers convert legacy **Profiles** into clean, deployable **Permission Set metadata**.
 
-## Installation (unpacked)
-1. Open Chrome → `chrome://extensions`
-2. Enable **Developer mode**
-3. Click **Load unpacked**
-4. Select the `profile-shift/` folder (the one containing `manifest.json`)
+It works entirely in your browser using your existing authenticated Salesforce session.
 
-## Permissions rationale
-ProfileShift requests only what it needs:
-- `tabs`: open the Profile Picker and (optionally) read the active tab URL for convenience
-- `cookies`: read the current Salesforce session cookie to authenticate API calls
-- `storage`: cache auth/session checks briefly
-- Host permissions: Salesforce domains required to read cookies and call your org endpoints
+📌 **No external servers**
+📌 **No OAuth setup required**
+📌 **No data collection**
+📌 **Full Metadata API support**
 
-## Development notes
-- UI is vanilla JS + CSS (no frameworks)
-- No inline scripts (CSP-friendly)
+ProfileShift is designed to help teams transition from profile-based access control to modern permission-set architecture.
 
-## License
-MIT — see [LICENSE](LICENSE)
+---
+
+## 🚀 Key Features
+
+### 🔄 Convert Profile → Permission Set
+
+* Reads Profile metadata via Salesforce Metadata API
+* Converts into editable in-browser model
+* Generates minimal (“delta-style”) Permission Set XML
+* Only enabled permissions are emitted
+* SFDX-ready output
+
+---
+
+### 🧩 Supported Permission Sections
+
+ProfileShift extracts and converts:
+
+✔ Object Permissions (CRUD, View All, Modify All)
+✔ Field-Level Security (Read / Edit)
+✔ System Permissions
+✔ Apex Class Access
+✔ Visualforce Page Access
+✔ Tab Settings
+✔ Record Type Visibility
+✔ Flow Access
+✔ External Data Source Access
+✔ Named Credential Access (External Credential Principals)
+✔ Custom Permissions
+
+---
+
+### 🧠 Editable In-Browser Model
+
+* Clean section-based UI
+* Tab navigation by permission type
+* Direct editing before XML generation
+* Toggle-based permission controls
+* Accurate metadata-to-model mapping
+
+---
+
+### 📤 Export Permission Set
+
+* Generate valid `<PermissionSet>` XML
+* Download as `permissionSet-meta.xml`
+* SFDX-compatible structure
+* Copy XML to clipboard (planned)
+
+---
+
+### 🚀 Optional Metadata Deploy
+
+* Deploy generated Permission Set directly to org
+* Uses official Salesforce Metadata API
+* ZIP packaging handled internally
+* Deployment confirmation modal
+* Real-time deploy status polling
+* Error transparency
+
+---
+
+### 🔗 Connected App Assignment (Optional)
+
+* Assign generated Permission Set to Admin-approved Connected Apps
+* Metadata patch handled safely
+* Explicit confirmation before deployment
+* Clear error handling for non-admin-approved apps
+
+---
+
+## 🖥️ UI Philosophy
+
+ProfileShift is designed for developers and administrators:
+
+* Full-page workspace (not popup-only)
+* Minimal distraction UI
+* Dark / Light theme toggle
+* Professional enterprise styling
+* Clear deploy confirmation modal
+* Loading overlays for long operations
+* Toast-based status notifications
+
+---
+
+## 🔐 Privacy & Security
+
+ProfileShift is **100% client-side**.
+
+* No external servers
+* No analytics
+* No telemetry
+* No data transmission
+* No metadata storage outside your browser
+* Uses existing Salesforce session (cookie-based authentication)
+* Does not store or log session IDs
+
+All Metadata API calls are made directly from your browser to Salesforce.
+
+---
+
+## 🏗 Architecture
+
+Built using:
+
+* Manifest V3 (Service Worker architecture)
+* HTML5, CSS3, Vanilla JavaScript
+* Salesforce SOAP Metadata API
+* Salesforce REST & Tooling API
+* Modular ZIP generator (STORE method)
+* Secure session reuse via cookies
+* Strict CSP compliance
+
+---
+
+## 📸 Screenshots
+
+*(Add screenshots here once finalized)*
+
+### 🔷 Profile Selection
+
+* Org detection
+* Profile dropdown
+* Extraction progress
+
+### 🧩 Permission Editor
+
+* Tabbed permission sections
+* Toggle controls
+* Permission tables
+
+### 🚀 Deploy Confirmation
+
+* Summary of changes
+* Connected App updates
+* Deploy progress modal
+
+---
+
+## 🛠 Installation
+
+### 🌐 Install from Chrome Web Store (Recommended)
+
+*(Add store link once published)*
+
+1. Visit Chrome Web Store
+2. Click **Add to Chrome**
+3. Log into your Salesforce org
+4. Open ProfileShift from the extension icon
+
+---
+
+### 🔧 Load Manually (Developer Mode)
+
+1. Clone repository:
+
+```bash
+git clone https://github.com/YOUR_USERNAME/profileshift.git
+```
+
+2. Open:
+
+```
+chrome://extensions/
+```
+
+3. Enable **Developer Mode**
+4. Click **Load unpacked**
+5. Select the project root folder
+
+Done 🎉
+
+---
+
+## 🧪 Current Capabilities
+
+✔ Profile metadata extraction
+✔ Metadata API read
+✔ In-browser permission editing
+✔ Delta-style Permission Set generation
+✔ Direct Metadata API deployment
+✔ Connected App metadata patching (optional)
+✔ Dark / Light theme
+✔ Busy overlay & status handling
+
+---
+
+## ⚠️ Important Notes
+
+* “Delta-style” output emits only enabled permissions.
+* Does not compute a full org-diff against existing Permission Sets.
+* Connected App updates require Admin-approved apps.
+* Deployment modifies your org metadata — always review before confirming.
+
+---
+
+## 🛣️ Roadmap
+
+Planned enhancements:
+
+* Compare Profile vs Existing Permission Set
+* True diff mode
+* CSV export for audit
+* Bulk profile analysis
+* Dependency validation warnings
+* Git-ready multi-metadata package export
+* Improved permission search/filter
+* Undo/Redo editing support
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome!
+
+Please ensure:
+
+* No external dependencies added
+* Maintain client-side-only architecture
+* Keep permissions minimal
+* Follow MV3 best practices
+* Do not introduce telemetry
+
+---
+
+## 🧠 Author
+
+Built by **Kartik Patkar**
+Salesforce Consultant & Developer
+GitHub • LinkedIn
+
+---
+
+## 📜 License
+
+This project is licensed under the **MIT License**.
+
+---
+
+> **ProfileShift** — Modernize Salesforce security architecture, safely and locally.
+
+---
