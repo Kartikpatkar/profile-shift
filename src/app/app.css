@@ -43,6 +43,47 @@ body {
     color: var(--text);
 }
 
+.loadingOverlay {
+    position: fixed;
+    inset: 0;
+    padding: 18px;
+    display: grid;
+    place-items: center;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 9000;
+}
+
+.loadingPanel {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--card);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.spinner {
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    border: 2px solid color-mix(in srgb, var(--text) 20%, transparent);
+    border-top-color: color-mix(in srgb, var(--btn) 85%, transparent);
+    animation: spin 0.85s linear infinite;
+}
+
+.loadingText {
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
 .topbar {
     display: flex;
     align-items: center;

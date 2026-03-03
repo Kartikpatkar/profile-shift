@@ -20,6 +20,8 @@ const els = {
     deployConfirmSummary: document.getElementById('deployConfirmSummary'),
     deployConfirmCancelBtn: document.getElementById('btnDeployCancel'),
     deployConfirmConfirmBtn: document.getElementById('btnDeployConfirm'),
+    loadingOverlay: document.getElementById('loadingOverlay'),
+    loadingText: document.getElementById('loadingText'),
     profileInput: document.getElementById('profileInput'),
     profilesList: document.getElementById('profilesList'),
 
@@ -62,6 +64,26 @@ const sectionSearch = {
 let selectedProfileId = null;
 
 let currentOrgHost = '';
+
+let busyCount = 0;
+
+function setBusy(isBusy, message = '') {
+    const next = isBusy ? busyCount + 1 : Math.max(0, busyCount - 1);
+    busyCount = next;
+
+    if (!els.loadingOverlay) return;
+    els.loadingOverlay.hidden = busyCount === 0;
+    if (els.loadingText && message) els.loadingText.textContent = message;
+}
+
+async function withBusy(message, fn) {
+    setBusy(true, message);
+    try {
+        return await fn();
+    } finally {
+        setBusy(false);
+    }
+}
 
 function setHeaderAuthUi({ isAuthenticated, instanceUrl }) {
     let host = '';
@@ -366,71 +388,73 @@ function sortProfiles(a, b) {
 }
 
 async function refreshProfiles() {
-    setStatus('Loading profiles…');
+    await withBusy('Loading profiles…', async () => {
+        setStatus('Loading profiles…');
 
-    els.profileInput.disabled = true;
-    els.convertBtn.disabled = true;
-    els.exportBtn.disabled = true;
-    els.deployBtn.disabled = true;
+        els.profileInput.disabled = true;
+        els.convertBtn.disabled = true;
+        els.exportBtn.disabled = true;
+        els.deployBtn.disabled = true;
 
-    selectedProfileId = null;
-    if (els.profileInput) els.profileInput.value = '';
-    clearDatalist(els.profilesList);
+        selectedProfileId = null;
+        if (els.profileInput) els.profileInput.value = '';
+        clearDatalist(els.profilesList);
 
-    const res = await sendMessage({ type: MSG.LIST_PROFILES });
-    if (!res?.ok) {
-        setHeaderAuthUi({ isAuthenticated: false, instanceUrl: '' });
-        setStatus(res?.error || 'Not connected. Use Login to connect to an org.', 'err');
-        debugLog('LIST_PROFILES failed', res);
+        const res = await sendMessage({ type: MSG.LIST_PROFILES });
+        if (!res?.ok) {
+            setHeaderAuthUi({ isAuthenticated: false, instanceUrl: '' });
+            setStatus(res?.error || 'Not connected. Use Login to connect to an org.', 'err');
+            debugLog('LIST_PROFILES failed', res);
 
-        // Keep editor disabled while not authenticated.
-        if (els.editor) els.editor.hidden = true;
-        return;
-    }
-
-    /** @type {ProfileListItem[]} */
-    const profiles = (res.profiles || []).slice().sort(sortProfiles);
-
-    setHeaderAuthUi({ isAuthenticated: true, instanceUrl: res.instanceUrl || '' });
-
-    // Build searchable catalog (label -> profile) and datalist options.
-    profileCatalog = {
-        items: profiles,
-        byLabel: new Map(),
-        byLabelLower: new Map(),
-        byNameLower: new Map()
-    };
-
-    const nameCounts = new Map();
-    for (const p of profiles) {
-        const nameLower = String(p.name || '').trim().toLowerCase();
-        if (!nameLower) continue;
-        nameCounts.set(nameLower, (nameCounts.get(nameLower) || 0) + 1);
-    }
-
-    for (const p of profiles) {
-        const label = optionLabel(p);
-        profileCatalog.byLabel.set(label, p);
-        profileCatalog.byLabelLower.set(label.toLowerCase(), p);
-
-        const nameLower = String(p.name || '').trim().toLowerCase();
-        if (nameLower) {
-            if ((nameCounts.get(nameLower) || 0) === 1) profileCatalog.byNameLower.set(nameLower, p);
-            else profileCatalog.byNameLower.set(nameLower, null);
+            // Keep editor disabled while not authenticated.
+            if (els.editor) els.editor.hidden = true;
+            return;
         }
 
-        const opt = document.createElement('option');
-        opt.value = label;
-        els.profilesList.appendChild(opt);
-    }
+        /** @type {ProfileListItem[]} */
+        const profiles = (res.profiles || []).slice().sort(sortProfiles);
 
-    els.profileInput.disabled = false;
+        setHeaderAuthUi({ isAuthenticated: true, instanceUrl: res.instanceUrl || '' });
 
-    els.permissionSetName.disabled = true;
-    els.permissionSetName.value = '';
+        // Build searchable catalog (label -> profile) and datalist options.
+        profileCatalog = {
+            items: profiles,
+            byLabel: new Map(),
+            byLabelLower: new Map(),
+            byNameLower: new Map()
+        };
 
-    setStatus(`Loaded ${profiles.length} profiles.`);
-    debugLog('Profiles loaded', { loaded: profiles.length, sample: profiles.slice(0, 10) });
+        const nameCounts = new Map();
+        for (const p of profiles) {
+            const nameLower = String(p.name || '').trim().toLowerCase();
+            if (!nameLower) continue;
+            nameCounts.set(nameLower, (nameCounts.get(nameLower) || 0) + 1);
+        }
+
+        for (const p of profiles) {
+            const label = optionLabel(p);
+            profileCatalog.byLabel.set(label, p);
+            profileCatalog.byLabelLower.set(label.toLowerCase(), p);
+
+            const nameLower = String(p.name || '').trim().toLowerCase();
+            if (nameLower) {
+                if ((nameCounts.get(nameLower) || 0) === 1) profileCatalog.byNameLower.set(nameLower, p);
+                else profileCatalog.byNameLower.set(nameLower, null);
+            }
+
+            const opt = document.createElement('option');
+            opt.value = label;
+            els.profilesList.appendChild(opt);
+        }
+
+        els.profileInput.disabled = false;
+
+        els.permissionSetName.disabled = true;
+        els.permissionSetName.value = '';
+
+        setStatus(`Loaded ${profiles.length} profiles.`);
+        debugLog('Profiles loaded', { loaded: profiles.length, sample: profiles.slice(0, 10) });
+    });
 }
 
 // Header profile menu wiring
@@ -1580,49 +1604,51 @@ async function convertSelected() {
 
     const profileFullName = (selectedProfile?.metadataFullName || '').trim() || null;
 
-    setStatus('Extracting profile via Metadata API…');
-    els.convertBtn.disabled = true;
-    els.exportBtn.disabled = true;
-    els.deployBtn.disabled = true;
+    await withBusy('Extracting profile…', async () => {
+        setStatus('Extracting profile via Metadata API…');
+        els.convertBtn.disabled = true;
+        els.exportBtn.disabled = true;
+        els.deployBtn.disabled = true;
 
-    const extractRes = await sendMessage({
-        type: MSG.EXTRACT_PROFILE,
-        payload: { profileId, profileFullName }
-    });
-    if (!extractRes?.ok) {
-        setStatus(extractRes?.error || 'Extraction failed', 'err');
-        debugLog('EXTRACT_PROFILE failed', extractRes);
-        updateButtonsForSelection();
-        return;
-    }
-
-    latestModel = extractRes.extraction;
-
-    // Enable and default the Permission Set API name.
-    els.permissionSetName.disabled = false;
-    if (desiredPermissionSetApiName) {
-        latestModel.permissionSetApiName = normalizeApiName(desiredPermissionSetApiName);
-    } else {
-        desiredPermissionSetApiName = latestModel.permissionSetApiName || '';
-    }
-
-    els.permissionSetName.value = normalizeApiName(desiredPermissionSetApiName || latestModel.permissionSetApiName || '');
-    xmlDirty = true;
-
-    els.editor.hidden = false;
-
-    updateCountsFromModel();
-    renderEditor();
-
-    debugLog('Conversion model', {
-        model: {
-            profileName: latestModel?.profileName,
-            permissionSetApiName: latestModel?.permissionSetApiName
+        const extractRes = await sendMessage({
+            type: MSG.EXTRACT_PROFILE,
+            payload: { profileId, profileFullName }
+        });
+        if (!extractRes?.ok) {
+            setStatus(extractRes?.error || 'Extraction failed', 'err');
+            debugLog('EXTRACT_PROFILE failed', extractRes);
+            updateButtonsForSelection();
+            return;
         }
-    });
 
-    setStatus('Ready: review/edit permissions, then export/deploy.', 'ok');
-    updateButtonsForSelection();
+        latestModel = extractRes.extraction;
+
+        // Enable and default the Permission Set API name.
+        els.permissionSetName.disabled = false;
+        if (desiredPermissionSetApiName) {
+            latestModel.permissionSetApiName = normalizeApiName(desiredPermissionSetApiName);
+        } else {
+            desiredPermissionSetApiName = latestModel.permissionSetApiName || '';
+        }
+
+        els.permissionSetName.value = normalizeApiName(desiredPermissionSetApiName || latestModel.permissionSetApiName || '');
+        xmlDirty = true;
+
+        els.editor.hidden = false;
+
+        updateCountsFromModel();
+        renderEditor();
+
+        debugLog('Conversion model', {
+            model: {
+                profileName: latestModel?.profileName,
+                permissionSetApiName: latestModel?.permissionSetApiName
+            }
+        });
+
+        setStatus('Ready: review/edit permissions, then export/deploy.', 'ok');
+        updateButtonsForSelection();
+    });
 }
 
 async function ensureXmlFresh() {

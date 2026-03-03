@@ -75,6 +75,13 @@
         </section>
     </main>
 
+    <div class="loadingOverlay" id="loadingOverlay" hidden>
+        <div class="loadingPanel" role="status" aria-live="polite" aria-label="Loading">
+            <div class="spinner" aria-hidden="true"></div>
+            <div class="loadingText" id="loadingText">Loading…</div>
+        </div>
+    </div>
+
     <div class="modalOverlay" id="deployConfirm" hidden>
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="deployConfirmTitle">
             <div class="modalTitle" id="deployConfirmTitle">Confirm deploy</div>
