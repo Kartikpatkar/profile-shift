@@ -4,6 +4,7 @@ import { normalizeApiName } from '../shared/text.js';
 /** @typedef {{ id: string, name: string, metadataFullName: string|null }} ProfileListItem */
 
 const els = {
+    themeToggle: document.getElementById('themeToggle'),
     authActions: document.getElementById('authActions'),
     loginProdBtn: document.getElementById('btnLoginProd'),
     loginSandboxBtn: document.getElementById('btnLoginSandbox'),
@@ -64,6 +65,52 @@ const sectionSearch = {
 let selectedProfileId = null;
 
 let currentOrgHost = '';
+
+const THEME_STORAGE_KEY = 'ps:theme';
+
+function getSavedTheme() {
+    try {
+        const v = String(localStorage.getItem(THEME_STORAGE_KEY) || '').trim().toLowerCase();
+        if (v === 'light' || v === 'dark') return v;
+        return '';
+    } catch {
+        return '';
+    }
+}
+
+function getEffectiveTheme() {
+    const saved = getSavedTheme();
+    if (saved) return saved;
+    try {
+        return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    } catch {
+        return 'dark';
+    }
+}
+
+function applyTheme(theme) {
+    const t = theme === 'light' || theme === 'dark' ? theme : '';
+    const root = document.documentElement;
+    if (!t) root.removeAttribute('data-theme');
+    else root.setAttribute('data-theme', t);
+
+    // Switch UI: checked means "dark".
+    if (els.themeToggle) {
+        const effective = getEffectiveTheme();
+        els.themeToggle.checked = effective === 'dark';
+    }
+}
+
+function toggleTheme() {
+    const current = getEffectiveTheme();
+    const next = current === 'light' ? 'dark' : 'light';
+    try {
+        localStorage.setItem(THEME_STORAGE_KEY, next);
+    } catch {
+        // ignore
+    }
+    applyTheme(next);
+}
 
 let busyCount = 0;
 
@@ -570,6 +617,18 @@ if (els.loginSandboxBtn) {
         setStatus(String(e?.message || e), 'err');
         debugLog('Login sandbox error', String(e?.stack || e));
     }));
+}
+
+if (els.themeToggle) {
+    els.themeToggle.addEventListener('change', () => {
+        const next = els.themeToggle.checked ? 'dark' : 'light';
+        try {
+            localStorage.setItem(THEME_STORAGE_KEY, next);
+        } catch {
+            // ignore
+        }
+        applyTheme(next);
+    });
 }
 
 function updateButtonsForSelection() {
@@ -1789,6 +1848,9 @@ els.deployBtn.addEventListener('click', () => (async () => {
 }));
 
 (async function init() {
+    // Theme init should happen before we show any UI.
+    applyTheme(getSavedTheme() || '');
+
     setHeaderAuthUi({ isAuthenticated: false, instanceUrl: '' });
 
     clearDatalist(els.profilesList);

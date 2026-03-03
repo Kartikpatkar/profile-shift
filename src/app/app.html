@@ -15,6 +15,27 @@
             <div class="sub">Select a Profile → Permission Set</div>
         </div>
         <div class="topbarRight">
+            <label class="themeSwitch" aria-label="Toggle theme">
+                <input class="themeSwitchInput" id="themeToggle" type="checkbox" aria-label="Toggle theme" />
+                <span class="themeSwitchTrack" aria-hidden="true">
+                    <span class="themeSwitchThumb" aria-hidden="true">
+                        <span class="themeSwitchGlyph sun" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="14" height="14" focusable="false" aria-hidden="true">
+                                <circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="2" />
+                                <path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M19.4 4.6l-1.8 1.8M6.4 17.6l-1.8 1.8"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            </svg>
+                        </span>
+                        <span class="themeSwitchGlyph moon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="14" height="14" focusable="false" aria-hidden="true">
+                                <path d="M21 15.2A8.2 8.2 0 0 1 11.2 3.4 7 7 0 1 0 21 15.2Z"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                            </svg>
+                        </span>
+                    </span>
+                </span>
+            </label>
+
             <div class="authActions" id="authActions" hidden>
                 <button class="topBtn" id="btnLoginProd" type="button">Login (Production)</button>
                 <button class="topBtn" id="btnLoginSandbox" type="button">Login (Sandbox)</button>
