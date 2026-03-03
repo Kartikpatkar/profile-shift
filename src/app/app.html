@@ -15,8 +15,28 @@
             <div class="sub">Select a Profile → Permission Set</div>
         </div>
         <div class="topbarRight">
-            <div class="pill" id="orgPill">Org: —</div>
-            <div class="pill" id="authPill">Checking…</div>
+            <div class="authActions" id="authActions" hidden>
+                <button class="topBtn" id="btnLoginProd" type="button">Login (Production)</button>
+                <button class="topBtn" id="btnLoginSandbox" type="button">Login (Sandbox)</button>
+            </div>
+
+            <div class="menuWrap" id="orgMenuWrap" hidden>
+                <button class="iconBtn" id="profileBtn" type="button" aria-label="Org menu" aria-haspopup="menu" aria-expanded="false">
+                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+                        <path fill="currentColor"
+                            d="M12 12a4.5 4.5 0 1 0-4.5-4.5A4.51 4.51 0 0 0 12 12Zm0 2.25c-4.08 0-7.5 2.04-7.5 4.5V21h15v-2.25c0-2.46-3.42-4.5-7.5-4.5Z" />
+                    </svg>
+                </button>
+
+                <div class="menu" id="profileMenu" role="menu" hidden>
+                    <div class="menuTitle">Connected org</div>
+                    <div class="menuValue" id="menuOrgName">—</div>
+                    <div class="menuActions">
+                        <button class="menuBtn" id="btnSwitchOrg" type="button">Switch org</button>
+                        <button class="menuBtn danger" id="btnLogout" type="button">Logout</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </header>
 

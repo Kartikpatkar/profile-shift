@@ -4,8 +4,15 @@ import { normalizeApiName } from '../shared/text.js';
 /** @typedef {{ id: string, name: string, metadataFullName: string|null }} ProfileListItem */
 
 const els = {
-    org: document.getElementById('orgPill'),
-    auth: document.getElementById('authPill'),
+    authActions: document.getElementById('authActions'),
+    loginProdBtn: document.getElementById('btnLoginProd'),
+    loginSandboxBtn: document.getElementById('btnLoginSandbox'),
+    orgMenuWrap: document.getElementById('orgMenuWrap'),
+    profileBtn: document.getElementById('profileBtn'),
+    profileMenu: document.getElementById('profileMenu'),
+    menuOrgName: document.getElementById('menuOrgName'),
+    logoutBtn: document.getElementById('btnLogout'),
+    switchOrgBtn: document.getElementById('btnSwitchOrg'),
     profileInput: document.getElementById('profileInput'),
     profilesList: document.getElementById('profilesList'),
 
@@ -46,6 +53,73 @@ const sectionSearch = {
 };
 
 let selectedProfileId = null;
+
+let currentOrgHost = '';
+
+function setHeaderAuthUi({ isAuthenticated, instanceUrl }) {
+    let host = '';
+    try {
+        host = instanceUrl ? new URL(instanceUrl).hostname : '';
+    } catch {
+        host = '';
+    }
+
+    currentOrgHost = isAuthenticated ? host : '';
+    updateMenuOrgName();
+
+    if (els.authActions) els.authActions.hidden = Boolean(isAuthenticated);
+    if (els.orgMenuWrap) els.orgMenuWrap.hidden = !Boolean(isAuthenticated);
+
+    if (!isAuthenticated) closeProfileMenu();
+}
+
+function updateMenuOrgName() {
+    const label = currentOrgHost || '—';
+    if (els.menuOrgName) els.menuOrgName.textContent = label;
+}
+
+function closeProfileMenu() {
+    if (!els.profileMenu || !els.profileBtn) return;
+    els.profileMenu.hidden = true;
+    els.profileBtn.setAttribute('aria-expanded', 'false');
+}
+
+function openProfileMenu() {
+    if (!els.profileMenu || !els.profileBtn) return;
+    updateMenuOrgName();
+    els.profileMenu.hidden = false;
+    els.profileBtn.setAttribute('aria-expanded', 'true');
+}
+
+function toggleProfileMenu() {
+    if (!els.profileMenu) return;
+    if (els.profileMenu.hidden) openProfileMenu();
+    else closeProfileMenu();
+}
+
+function resetUiForOrgChange() {
+    selectedProfileId = null;
+    latestModel = null;
+    latestXml = null;
+    xmlDirty = false;
+    desiredPermissionSetApiName = '';
+    activeSectionKey = 'objects';
+    fieldObjectFilter = '';
+
+    clearDatalist(els.profilesList);
+    if (els.profileInput) {
+        els.profileInput.value = '';
+        els.profileInput.disabled = true;
+    }
+
+    if (els.permissionSetName) {
+        els.permissionSetName.disabled = true;
+        els.permissionSetName.value = '';
+    }
+
+    if (els.editor) els.editor.hidden = true;
+    updateButtonsForSelection();
+}
 
 /** @type {{ items: ProfileListItem[], byLabel: Map<string, ProfileListItem>, byLabelLower: Map<string, ProfileListItem>, byNameLower: Map<string, ProfileListItem|null> }} */
 let profileCatalog = {
@@ -160,25 +234,19 @@ async function refreshProfiles() {
 
     const res = await sendMessage({ type: MSG.LIST_PROFILES });
     if (!res?.ok) {
-        setStatus(res?.error || 'Failed to load profiles', 'err');
+        setHeaderAuthUi({ isAuthenticated: false, instanceUrl: '' });
+        setStatus(res?.error || 'Not connected. Use Login to connect to an org.', 'err');
         debugLog('LIST_PROFILES failed', res);
-        els.auth.textContent = 'Not authenticated';
-        if (els.org) els.org.textContent = 'Org: —';
+
+        // Keep editor disabled while not authenticated.
+        if (els.editor) els.editor.hidden = true;
         return;
     }
 
     /** @type {ProfileListItem[]} */
     const profiles = (res.profiles || []).slice().sort(sortProfiles);
 
-    els.auth.textContent = 'Authenticated';
-    if (els.org) {
-        try {
-            const host = res.instanceUrl ? new URL(res.instanceUrl).hostname : null;
-            els.org.textContent = host ? `Org: ${host}` : 'Org: (unknown)';
-        } catch {
-            els.org.textContent = 'Org: (unknown)';
-        }
-    }
+    setHeaderAuthUi({ isAuthenticated: true, instanceUrl: res.instanceUrl || '' });
 
     // Build searchable catalog (label -> profile) and datalist options.
     profileCatalog = {
@@ -218,6 +286,97 @@ async function refreshProfiles() {
 
     setStatus(`Loaded ${profiles.length} profiles.`);
     debugLog('Profiles loaded', { loaded: profiles.length, sample: profiles.slice(0, 10) });
+}
+
+// Header profile menu wiring
+if (els.profileBtn) {
+    els.profileBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleProfileMenu();
+    });
+}
+
+document.addEventListener('click', (e) => {
+    const t = /** @type {HTMLElement|null} */ (e?.target || null);
+    if (!t) return;
+    // Close menu when clicking outside
+    if (els.profileMenu && !els.profileMenu.hidden) {
+        const withinMenu = els.profileMenu.contains(t);
+        const withinBtn = els.profileBtn ? els.profileBtn.contains(t) : false;
+        if (!withinMenu && !withinBtn) closeProfileMenu();
+    }
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeProfileMenu();
+});
+
+if (els.logoutBtn) {
+    els.logoutBtn.addEventListener('click', async () => {
+        closeProfileMenu();
+        setStatus('Clearing session…');
+        resetUiForOrgChange();
+        setHeaderAuthUi({ isAuthenticated: false, instanceUrl: '' });
+        const res = await sendMessage({ type: MSG.CLEAR_SESSION });
+        if (!res?.ok) {
+            setStatus(res?.error || 'Failed to clear session', 'err');
+            return;
+        }
+        await refreshProfiles();
+        updateButtonsForSelection();
+    });
+}
+
+if (els.switchOrgBtn) {
+    els.switchOrgBtn.addEventListener('click', async () => {
+        closeProfileMenu();
+        setStatus('Switching org…');
+        resetUiForOrgChange();
+        setHeaderAuthUi({ isAuthenticated: false, instanceUrl: '' });
+        const res = await sendMessage({ type: MSG.SWITCH_ORG });
+        if (!res?.ok) {
+            setStatus(res?.error || 'Failed to switch org', 'err');
+            return;
+        }
+        await refreshProfiles();
+        updateButtonsForSelection();
+    });
+}
+
+async function loginFlow(useSandbox) {
+    closeProfileMenu();
+    setStatus(useSandbox ? 'Opening Salesforce sandbox login…' : 'Opening Salesforce production login…');
+    resetUiForOrgChange();
+    setHeaderAuthUi({ isAuthenticated: false, instanceUrl: '' });
+
+    const res = await sendMessage({
+        type: MSG.LOGIN,
+        payload: { useSandbox: Boolean(useSandbox) }
+    });
+
+    if (!res?.ok) {
+        setStatus(res?.error || 'Login failed', 'err');
+        return;
+    }
+
+    // After login, refresh profiles from the newly-authenticated org.
+    await refreshProfiles();
+    updateButtonsForSelection();
+}
+
+if (els.loginProdBtn) {
+    els.loginProdBtn.addEventListener('click', () => loginFlow(false).catch((e) => {
+        setStatus(String(e?.message || e), 'err');
+        debugLog('Login prod error', String(e?.stack || e));
+    }));
+}
+
+if (els.loginSandboxBtn) {
+    els.loginSandboxBtn.addEventListener('click', () => loginFlow(true).catch((e) => {
+        setStatus(String(e?.message || e), 'err');
+        debugLog('Login sandbox error', String(e?.stack || e));
+    }));
 }
 
 function updateButtonsForSelection() {
@@ -1425,8 +1584,7 @@ els.deployBtn.addEventListener('click', () => deployXml().catch((e) => {
 }));
 
 (async function init() {
-    els.auth.textContent = 'Checking…';
-    if (els.org) els.org.textContent = 'Org: —';
+    setHeaderAuthUi({ isAuthenticated: false, instanceUrl: '' });
 
     clearDatalist(els.profilesList);
     if (els.profileInput) els.profileInput.value = '';

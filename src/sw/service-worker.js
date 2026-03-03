@@ -40,6 +40,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
 
       switch (message.type) {
+        case MSG.LOGIN: {
+          const useSandbox = Boolean(message.payload?.useSandbox);
+          const org = await connector.login(useSandbox);
+          sendResponse({ ok: true, org });
+          return;
+        }
+
+        case MSG.CLEAR_SESSION: {
+          // "Logout" from ProfileShift: clear pinned context and stop scanning other tabs.
+          // This does not log the user out of Salesforce; it only clears extension session context.
+          await chrome.storage.local.set({ openerTabId: null, currentOrg: null });
+          connector.clearCache();
+          sendResponse({ ok: true });
+          return;
+        }
+
+        case MSG.SWITCH_ORG: {
+          // "Switch org": clear openerTabId so the connector will scan Salesforce tabs again.
+          await chrome.storage.local.remove(['openerTabId', 'currentOrg']);
+          connector.clearCache();
+          sendResponse({ ok: true });
+          return;
+        }
+
         case MSG.CHECK_AUTH: {
           const org = await connector.checkAuth({
             skipCache: Boolean(message.payload?.skipCache)

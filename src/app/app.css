@@ -30,6 +30,11 @@
     box-sizing: border-box;
 }
 
+/* Ensure the HTML `hidden` attribute always wins over layout styles. */
+[hidden] {
+    display: none !important;
+}
+
 body {
     margin: 0;
     min-height: 100vh;
@@ -50,6 +55,100 @@ body {
     display: flex;
     gap: 10px;
     align-items: center;
+}
+
+.authActions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.topBtn {
+    appearance: none;
+    border: 1px solid var(--border);
+    background: var(--btn2);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 9px 10px;
+    font-weight: 800;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.topBtn:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--btn) 55%, transparent);
+    outline-offset: 2px;
+}
+
+.menuWrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.iconBtn {
+    appearance: none;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--btn2);
+    color: var(--text);
+    cursor: pointer;
+}
+
+.iconBtn:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--btn) 55%, transparent);
+    outline-offset: 2px;
+}
+
+.menu {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 260px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--card);
+    padding: 12px;
+    z-index: 10;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.menuTitle {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 6px;
+}
+
+.menuValue {
+    font-size: 13px;
+    color: var(--text);
+    margin-bottom: 10px;
+    word-break: break-word;
+}
+
+.menuActions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.menuBtn {
+    appearance: none;
+    border: 1px solid var(--border);
+    background: var(--btn2);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 9px 10px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.menuBtn.danger {
+    color: var(--danger);
 }
 
 .brand {
