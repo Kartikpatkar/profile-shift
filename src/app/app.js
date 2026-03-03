@@ -1,6 +1,10 @@
 import { MSG } from '../sw/constants.js';
 import { normalizeApiName } from '../shared/text.js';
 
+// Production logging gate (leave console.error visible).
+const DEBUG = false;
+const dlog = (...args) => { if (DEBUG) console.log(...args); };
+
 /** @typedef {{ id: string, name: string, metadataFullName: string|null }} ProfileListItem */
 
 const els = {
@@ -370,7 +374,7 @@ function setStatus(message, kind = '') {
 
     // Fallback (should only happen if toast script/container is missing)
     if (type === 'error') console.error('[ProfileShift]', title, message);
-    else console.log('[ProfileShift]', title, message);
+    else dlog('[ProfileShift]', title, message);
 }
 
 function safeJson(value) {
@@ -382,6 +386,7 @@ function safeJson(value) {
 }
 
 function debugLog(label, value) {
+    if (!DEBUG) return;
     try {
         // Keep logs easy to filter.
         if (value === undefined) console.log('[ProfileShift]', label);

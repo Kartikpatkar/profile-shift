@@ -60,6 +60,11 @@
  */
 
 class SalesforceConnector {
+    // Production logging gate. Keep errors visible, silence debug noise.
+    static DEBUG = false;
+    static dlog(...args) { if (SalesforceConnector.DEBUG) console.log(...args); }
+    static dwarn(...args) { if (SalesforceConnector.DEBUG) console.warn(...args); }
+
     constructor(options = {}) {
         this.cacheTTL = options.cacheTTL || 60000; // 60 seconds default
         this.onAuthChange = options.onAuthChange || null;
@@ -72,7 +77,7 @@ class SalesforceConnector {
      */
     clearCache() {
         this._cache = { org: null, timestamp: 0 };
-        console.log('[SalesforceConnector] Auth cache cleared');
+        SalesforceConnector.dlog('[SalesforceConnector] Auth cache cleared');
     }
 
     /**
@@ -100,7 +105,7 @@ class SalesforceConnector {
 
             // If explicitly pinned to a tab, ONLY use that tab.
             if (pinnedTabId) {
-                console.log('[SalesforceConnector] Using pinned tab ID:', pinnedTabId);
+                SalesforceConnector.dlog('[SalesforceConnector] Using pinned tab ID:', pinnedTabId);
                 try {
                     const pinnedTab = await chrome.tabs.get(pinnedTabId);
                     if (pinnedTab && this._isSalesforceUrl(pinnedTab.url)) {
@@ -115,7 +120,7 @@ class SalesforceConnector {
                         }
                     }
                 } catch (e) {
-                    console.log('[SalesforceConnector] Pinned tab no longer exists:', e.message);
+                    SalesforceConnector.dlog('[SalesforceConnector] Pinned tab no longer exists:', e.message);
                 }
 
                 const notAuthPinned = { isAuthenticated: false };
@@ -130,38 +135,38 @@ class SalesforceConnector {
 
             // If openerTabId is explicitly null, don't scan other tabs (user wants to login)
             if (openerTabId === null) {
-                console.log('[SalesforceConnector] Opener tab explicitly cleared; not scanning other tabs');
+                SalesforceConnector.dlog('[SalesforceConnector] Opener tab explicitly cleared; not scanning other tabs');
                 this._cache = { org: { isAuthenticated: false }, timestamp: Date.now() };
                 return { isAuthenticated: false };
             }
 
             // Try opener tab first if it exists
             if (openerTabId) {
-                console.log('[SalesforceConnector] Checking opener tab ID:', openerTabId);
+                SalesforceConnector.dlog('[SalesforceConnector] Checking opener tab ID:', openerTabId);
                 try {
                     const openerTab = await chrome.tabs.get(openerTabId);
                     if (openerTab && this._isSalesforceUrl(openerTab.url)) {
                         const openerHost = new URL(openerTab.url).hostname;
                         if (!this._isLoginOrTestHost(openerHost)) {
-                            console.log('[SalesforceConnector] Opener tab is Salesforce:', openerTab.url);
+                            SalesforceConnector.dlog('[SalesforceConnector] Opener tab is Salesforce:', openerTab.url);
                             const result = await this._checkTabForSession(openerTab);
                             if (result.isAuthenticated) {
-                                console.log('[SalesforceConnector] Found session in opener tab:', result.instanceUrl);
+                                SalesforceConnector.dlog('[SalesforceConnector] Found session in opener tab:', result.instanceUrl);
                                 this._cache = { org: result, timestamp: Date.now() };
                                 this._notifyAuthChange(result);
                                 return result;
                             }
                         } else {
-                            console.log('[SalesforceConnector] Skipping login/test opener tab:', openerHost);
+                            SalesforceConnector.dlog('[SalesforceConnector] Skipping login/test opener tab:', openerHost);
                         }
                     }
                 } catch (e) {
-                    console.log('[SalesforceConnector] Opener tab no longer exists:', e.message);
+                    SalesforceConnector.dlog('[SalesforceConnector] Opener tab no longer exists:', e.message);
                 }
             }
 
             // Scan for Salesforce tabs
-            console.log('[SalesforceConnector] Scanning for Salesforce tabs...');
+            SalesforceConnector.dlog('[SalesforceConnector] Scanning for Salesforce tabs...');
             const query = currentWindowOnly ? { currentWindow: true } : {};
             const tabs = await chrome.tabs.query(query);
             const salesforceTabs = tabs.filter(tab => this._isSalesforceUrl(tab.url));
@@ -178,12 +183,12 @@ class SalesforceConnector {
             for (const tab of recentSalesforceTabs) {
                 const tabHost = new URL(tab.url).hostname;
                 if (this._isLoginOrTestHost(tabHost)) {
-                    console.log('[SalesforceConnector] Skipping login/test tab:', tabHost);
+                    SalesforceConnector.dlog('[SalesforceConnector] Skipping login/test tab:', tabHost);
                     continue;
                 }
                 const result = await this._checkTabForSession(tab);
                 if (result.isAuthenticated) {
-                    console.log('[SalesforceConnector] Found authenticated session in tab:', result.instanceUrl);
+                    SalesforceConnector.dlog('[SalesforceConnector] Found authenticated session in tab:', result.instanceUrl);
                     // Update the opener tab ID to this authenticated tab
                     chrome.storage.local.set({ openerTabId: tab.id });
                     this._cache = { org: result, timestamp: Date.now() };
@@ -232,12 +237,12 @@ class SalesforceConnector {
 
                             if (isSalesforceUrl) {
                                 // User has been redirected to Salesforce org after login
-                                console.log('[SalesforceConnector] Login redirect detected to:', url.hostname);
+                                SalesforceConnector.dlog('[SalesforceConnector] Login redirect detected to:', url.hostname);
 
                                 // Update opener tab ID to this new login tab and clear cache
                                 await chrome.storage.local.set({ openerTabId: tabId });
                                 this.clearCache();
-                                console.log('[SalesforceConnector] Updated opener tab ID and cleared cache:', tabId);
+                                SalesforceConnector.dlog('[SalesforceConnector] Updated opener tab ID and cleared cache:', tabId);
 
                                 // Give it a moment for the session to be established
                                 setTimeout(async () => {
@@ -248,7 +253,7 @@ class SalesforceConnector {
                                         clearTimeout(timeoutHandle);
                                         resolve(org);
                                     } else {
-                                        console.log('[SalesforceConnector] Session not established yet, continuing to listen...');
+                                        SalesforceConnector.dlog('[SalesforceConnector] Session not established yet, continuing to listen...');
                                     }
                                 }, 1000);
                             }
@@ -277,7 +282,7 @@ class SalesforceConnector {
      * @returns {Promise<void>}
      */
     async switchOrg() {
-        console.log('[SalesforceConnector] Switching org - clearing current session');
+        SalesforceConnector.dlog('[SalesforceConnector] Switching org - clearing current session');
         await chrome.storage.local.set({ openerTabId: null, currentOrg: null });
         this.clearCache();
         const notAuthResult = { isAuthenticated: false };
@@ -335,7 +340,7 @@ class SalesforceConnector {
             for (const domain of cookieDomains) {
                 try {
                     const cookies = await chrome.cookies.getAll({ domain });
-                    console.log(`[SalesforceConnector] Cookies for ${domain}:`, cookies.length);
+                    SalesforceConnector.dlog(`[SalesforceConnector] Cookies for ${domain}:`, cookies.length);
                     allCookies.push(...cookies);
                 } catch (e) {
                     // Ignore cookie fetch errors
@@ -361,7 +366,7 @@ class SalesforceConnector {
             for (const cookie of sessionCookies) {
                 if (!cookie.value) continue;
 
-                console.log('[SalesforceConnector] Selected session cookie:', cookie.name);
+                SalesforceConnector.dlog('[SalesforceConnector] Selected session cookie:', cookie.name);
 
                 // Determine if sandbox
                 const isSandbox = hostname.includes('.sandbox.') ||
@@ -383,13 +388,13 @@ class SalesforceConnector {
                     };
                 }
 
-                console.warn('[SalesforceConnector] Session validation failed (API)', validation);
+                SalesforceConnector.dwarn('[SalesforceConnector] Session validation failed (API)', validation);
                 validationFailures.push({ cookie: cookie.name, validation });
             }
 
             return { isAuthenticated: false, validationFailure: validationFailures };
         } catch (err) {
-            console.log('[SalesforceConnector] Error checking tab:', err);
+            SalesforceConnector.dlog('[SalesforceConnector] Error checking tab:', err);
             return { isAuthenticated: false };
         }
     }

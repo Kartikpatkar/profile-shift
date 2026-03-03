@@ -30,6 +30,10 @@
 
 import SalesforceConnector from './salesforce-connector.js';
 
+// Production logging gate.
+const DEBUG = false;
+const dlog = (...args) => { if (DEBUG) console.log(...args); };
+
 class SalesforceMembers {
     /**
      * @param {Object} options
@@ -54,10 +58,10 @@ class SalesforceMembers {
         const org = await this._requireAuth();
 
         if (this.isToolingType(metadataType)) {
-            console.log(`[SalesforceMembers] Fetching ${metadataType} via Tooling API`);
+            dlog(`[SalesforceMembers] Fetching ${metadataType} via Tooling API`);
             return this._fetchViaToolingAPI(org, metadataType);
         } else {
-            console.log(`[SalesforceMembers] Fetching ${metadataType} via Metadata API`);
+            dlog(`[SalesforceMembers] Fetching ${metadataType} via Metadata API`);
             return this._fetchViaMetadataAPI(org, metadataType);
         }
     }

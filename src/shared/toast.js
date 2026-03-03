@@ -4,11 +4,15 @@
  * @param {string} message - The detailed message inside the toast.
  * @param {string} type - The type of toast: 'success' (default), 'error', or 'info'.
  */
+
+// Production logging gate.
+const DEBUG = false;
+
 function showToast(title, message, type = 'success') {
     // Find the container where toasts will be shown
     const toastContainer = document.getElementById('toastContainer');
     if (!toastContainer) {
-        console.warn('Toast container element with id "toastContainer" not found.');
+        if (DEBUG) console.warn('Toast container element with id "toastContainer" not found.');
         return;  // If container is missing, stop the function
     }
 

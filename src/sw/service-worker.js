@@ -6,6 +6,11 @@ import { soapListMetadata, soapReadMetadata } from '../shared/metadata-read.js';
 import { profileRecordXmlToPermissionSetModel } from '../shared/profile-metadata.js';
 import { xmlEscape } from '../shared/xml.js';
 
+// Production logging gate. Keep errors visible, silence debug noise.
+const DEBUG = false;
+const dlog = (...args) => { if (DEBUG) console.log(...args); };
+const dwarn = (...args) => { if (DEBUG) console.warn(...args); };
+
 const connector = new SalesforceConnector({
   cacheTTL: 15_000,
   currentWindowOnly: true
@@ -27,7 +32,7 @@ chrome.action.onClicked.addListener(async (tab) => {
     const url = chrome.runtime.getURL('src/app/app.html');
     await chrome.tabs.create({ url });
   } catch (e) {
-    console.warn('[ProfileShift] Failed to open app tab:', e);
+    dwarn('[ProfileShift] Failed to open app tab:', e);
   }
 });
 
@@ -99,7 +104,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               if (key && r.fullName) metadataMap.set(key, r.fullName);
             }
           } catch (e) {
-            console.warn('[ProfileShift] listMetadata(Profile) failed while listing profiles.', e);
+            dwarn('[ProfileShift] listMetadata(Profile) failed while listing profiles.', e);
           }
 
           const out = profiles.map((p) => ({
@@ -202,7 +207,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               const pid15 = toId15(profileId);
               profileFullName = listed.results.find((r) => toId15(r.id) === pid15)?.fullName || null;
             } catch (e) {
-              console.warn('[ProfileShift] listMetadata(Profile) failed, falling back to REST label.', e);
+              dwarn('[ProfileShift] listMetadata(Profile) failed, falling back to REST label.', e);
             }
           }
 
@@ -253,7 +258,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             });
             extraction.userPermissions = mergeSystemPermissions(extraction.userPermissions, allSystemPermNames);
           } catch (e) {
-            console.warn('[ProfileShift] Failed to derive disabled System Permissions via Tooling API describe.', e);
+            dwarn('[ProfileShift] Failed to derive disabled System Permissions via Tooling API describe.', e);
           }
 
           sendResponse({ ok: true, extraction });
