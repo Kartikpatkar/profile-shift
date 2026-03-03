@@ -75,6 +75,30 @@
         </section>
     </main>
 
+    <div class="modalOverlay" id="deployConfirm" hidden>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="deployConfirmTitle">
+            <div class="modalTitle" id="deployConfirmTitle">Confirm deploy</div>
+
+            <div class="modalMeta">
+                <div class="modalMetaRow">
+                    <div class="modalMetaKey">Org</div>
+                    <div class="modalMetaVal" id="deployConfirmOrg">—</div>
+                </div>
+                <div class="modalMetaRow">
+                    <div class="modalMetaKey">Permission Set Name</div>
+                    <div class="modalMetaVal cellMono" id="deployConfirmPermSet">—</div>
+                </div>
+            </div>
+
+            <div class="modalSummary" id="deployConfirmSummary"></div>
+
+            <div class="modalFooter">
+                <button class="btn btn-secondary" id="btnDeployCancel" type="button">Cancel</button>
+                <button class="btn" id="btnDeployConfirm" type="button">Deploy</button>
+            </div>
+        </div>
+    </div>
+
     <div id="toastContainer" class="toastContainer" aria-live="polite" aria-atomic="true"></div>
 
     <script src="../shared/toast.js"></script>

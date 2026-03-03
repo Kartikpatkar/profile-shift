@@ -13,6 +13,13 @@ const els = {
     menuOrgName: document.getElementById('menuOrgName'),
     logoutBtn: document.getElementById('btnLogout'),
     switchOrgBtn: document.getElementById('btnSwitchOrg'),
+
+    deployConfirm: document.getElementById('deployConfirm'),
+    deployConfirmOrg: document.getElementById('deployConfirmOrg'),
+    deployConfirmPermSet: document.getElementById('deployConfirmPermSet'),
+    deployConfirmSummary: document.getElementById('deployConfirmSummary'),
+    deployConfirmCancelBtn: document.getElementById('btnDeployCancel'),
+    deployConfirmConfirmBtn: document.getElementById('btnDeployConfirm'),
     profileInput: document.getElementById('profileInput'),
     profilesList: document.getElementById('profilesList'),
 
@@ -82,6 +89,144 @@ function closeProfileMenu() {
     if (!els.profileMenu || !els.profileBtn) return;
     els.profileMenu.hidden = true;
     els.profileBtn.setAttribute('aria-expanded', 'false');
+}
+
+let deployConfirmPendingResolve = null;
+let deployConfirmBusy = false;
+
+function setDeployConfirmBusy(busy) {
+    deployConfirmBusy = Boolean(busy);
+    if (!els.deployConfirmConfirmBtn || !els.deployConfirmCancelBtn) return;
+
+    els.deployConfirmCancelBtn.disabled = deployConfirmBusy;
+    els.deployConfirmConfirmBtn.disabled = deployConfirmBusy;
+    els.deployConfirmConfirmBtn.textContent = deployConfirmBusy ? 'Deploying…' : 'Deploy';
+}
+
+function isDeployConfirmOpen() {
+    return Boolean(els.deployConfirm && !els.deployConfirm.hidden);
+}
+
+function closeDeployConfirm(confirmed = false, { force = false } = {}) {
+    if (!els.deployConfirm) return;
+
+    // If a deploy is running, keep the modal visible.
+    if (deployConfirmBusy && !force) return;
+
+    els.deployConfirm.hidden = true;
+    setDeployConfirmBusy(false);
+
+    const r = deployConfirmPendingResolve;
+    deployConfirmPendingResolve = null;
+    if (typeof r === 'function') r(Boolean(confirmed));
+}
+
+function resolveDeployConfirm(confirmed = false) {
+    const r = deployConfirmPendingResolve;
+    deployConfirmPendingResolve = null;
+    if (typeof r === 'function') r(Boolean(confirmed));
+}
+
+function hideDeployConfirm() {
+    if (!els.deployConfirm) return;
+    els.deployConfirm.hidden = true;
+    setDeployConfirmBusy(false);
+    deployConfirmPendingResolve = null;
+}
+
+function countXmlBlocks(xml, tagName) {
+    const re = new RegExp(`<${tagName}\\b`, 'g');
+    const m = String(xml || '').match(re);
+    return m ? m.length : 0;
+}
+
+function buildDeploySummaryRows(xml, model) {
+    const blocks = [
+        { tag: 'objectPermissions', label: 'Object Permissions' },
+        { tag: 'fieldPermissions', label: 'Field Permissions' },
+        { tag: 'userPermissions', label: 'System Permissions' },
+        { tag: 'classAccesses', label: 'Apex Class Access' },
+        { tag: 'pageAccesses', label: 'Visualforce Page Access' },
+        { tag: 'tabSettings', label: 'App / Tab Permissions' },
+        { tag: 'recordTypeVisibilities', label: 'Record Type Visibility' },
+        { tag: 'flowAccesses', label: 'Flow Access' },
+        { tag: 'externalDataSourceAccesses', label: 'External Data Source Access' },
+        { tag: 'externalCredentialPrincipalAccesses', label: 'Named Credential Access' },
+        { tag: 'customPermissions', label: 'Custom Permissions' }
+    ];
+
+    const out = blocks
+        .map((b) => ({ label: b.label, count: countXmlBlocks(xml, b.tag) }))
+        .filter((r) => r.count > 0);
+
+    const connectedApps = (model?.assignedConnectedApps || [])
+        .filter((r) => r?.enabled && String(r.connectedApp || '').trim())
+        .map((r) => String(r.connectedApp).trim());
+    if (connectedApps.length > 0) {
+        out.push({ label: 'Assigned Connected Apps (updated on deploy)', count: connectedApps.length, connectedApps });
+    }
+
+    return out;
+}
+
+function renderDeploySummary(summaryRows) {
+    if (!els.deployConfirmSummary) return;
+    els.deployConfirmSummary.innerHTML = '';
+
+    const rows = Array.isArray(summaryRows) ? summaryRows : [];
+    if (rows.length === 0) {
+        els.deployConfirmSummary.appendChild(el('div', { class: 'sumNote', text: 'No enabled items detected. Deploy will still create/update the Permission Set metadata (label/license), but with no permission blocks.' }));
+        return;
+    }
+
+    for (const r of rows) {
+        const row = el('div', { class: 'sumRow' }, [
+            el('div', { class: 'sumLabel', text: r.label }),
+            el('div', { class: 'cellMono', text: String(r.count) })
+        ]);
+        els.deployConfirmSummary.appendChild(row);
+
+        if (Array.isArray(r.connectedApps) && r.connectedApps.length > 0) {
+            const shown = r.connectedApps.slice(0, 20);
+            const more = r.connectedApps.length - shown.length;
+            const txt = shown.join(', ') + (more > 0 ? ` (+${more} more)` : '');
+            els.deployConfirmSummary.appendChild(el('div', { class: 'sumNote', text: txt }));
+        }
+    }
+
+    els.deployConfirmSummary.appendChild(el('div', { class: 'sumNote', text: 'Deploy applies changes via Metadata API to the currently connected org.' }));
+}
+
+async function confirmDeploy() {
+    if (!latestModel) return false;
+    closeProfileMenu();
+    if (!els.deployConfirm || !els.deployConfirmConfirmBtn || !els.deployConfirmCancelBtn) {
+        // Fallback if dialog markup is missing for any reason.
+        return window.confirm('Deploy Permission Set via Metadata API?');
+    }
+
+    const xml = await ensureXmlFresh();
+    const fullName = normalizeApiName(latestModel.permissionSetApiName || 'PermissionSet');
+
+    if (els.deployConfirmOrg) els.deployConfirmOrg.textContent = currentOrgHost || '—';
+    if (els.deployConfirmPermSet) els.deployConfirmPermSet.textContent = fullName;
+
+    const rows = buildDeploySummaryRows(xml, latestModel);
+    renderDeploySummary(rows);
+
+    setDeployConfirmBusy(false);
+    els.deployConfirm.hidden = false;
+
+    return await new Promise((resolve) => {
+        deployConfirmPendingResolve = resolve;
+
+        // Focus primary action for quick keyboard confirmation.
+        try {
+            els.deployConfirmConfirmBtn.focus();
+        } catch {
+            // ignore
+        }
+    });
 }
 
 function openProfileMenu() {
@@ -309,8 +454,32 @@ document.addEventListener('click', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeProfileMenu();
+    if (e.key !== 'Escape') return;
+    if (isDeployConfirmOpen()) {
+        closeDeployConfirm(false);
+        return;
+    }
+    closeProfileMenu();
 });
+
+if (els.deployConfirm) {
+    // Click outside the panel to cancel.
+    els.deployConfirm.addEventListener('click', (e) => {
+        if (e.target === els.deployConfirm) closeDeployConfirm(false);
+    });
+}
+
+if (els.deployConfirmCancelBtn) {
+    els.deployConfirmCancelBtn.addEventListener('click', () => closeDeployConfirm(false));
+}
+
+if (els.deployConfirmConfirmBtn) {
+    // Confirm should keep the modal open while the deploy runs.
+    els.deployConfirmConfirmBtn.addEventListener('click', () => {
+        setDeployConfirmBusy(true);
+        resolveDeployConfirm(true);
+    });
+}
 
 if (els.logoutBtn) {
     els.logoutBtn.addEventListener('click', async () => {
@@ -1577,10 +1746,20 @@ els.exportBtn.addEventListener('click', () => exportXml().catch((e) => {
     debugLog('Export error', String(e?.stack || e));
 }));
 
-els.deployBtn.addEventListener('click', () => deployXml().catch((e) => {
+els.deployBtn.addEventListener('click', () => (async () => {
+    const ok = await confirmDeploy();
+    if (!ok) return;
+    try {
+        await deployXml();
+    } finally {
+        // Close after we show success/error status.
+        hideDeployConfirm();
+    }
+})().catch((e) => {
     setStatus(String(e?.message || e), 'err');
     debugLog('Deploy error', String(e?.stack || e));
     updateButtonsForSelection();
+    hideDeployConfirm();
 }));
 
 (async function init() {

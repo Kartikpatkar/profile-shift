@@ -334,6 +334,90 @@ body {
     animation: toastIn 0.18s ease-out;
 }
 
+.modalOverlay {
+    position: fixed;
+    inset: 0;
+    padding: 18px;
+    display: grid;
+    place-items: center;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 10000;
+}
+
+.modal {
+    width: min(720px, 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+    padding: 14px;
+    display: grid;
+    gap: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.modalTitle {
+    font-weight: 800;
+    letter-spacing: 0.2px;
+    font-size: 15px;
+}
+
+.modalMeta {
+    display: grid;
+    gap: 8px;
+}
+
+.modalMetaRow {
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+    justify-content: space-between;
+}
+
+.modalMetaKey {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.modalMetaVal {
+    color: var(--text);
+    font-size: 13px;
+    word-break: break-word;
+    text-align: right;
+}
+
+.modalSummary {
+    display: grid;
+    gap: 8px;
+}
+
+.sumRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--btn2);
+}
+
+.sumLabel {
+    color: var(--text);
+    font-weight: 700;
+}
+
+.sumNote {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.modalFooter {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
 .toast.success {
     border-color: color-mix(in srgb, var(--ok) 45%, var(--border));
 }
