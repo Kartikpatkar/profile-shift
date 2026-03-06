@@ -139,25 +139,29 @@ Built using:
 
 ## 📸 Screenshots
 
-*(Add screenshots here once finalized)*
+### 🟦 Main Screen
+
+**Light Theme**
+
+![Main Screen - Light Theme](src/assets/screenshots/Main%20Screen%20-%20Light%20Theme.png)
+
+**Dark Theme**
+
+![Main Screen - Dark Theme](src/assets/screenshots/Main%20Screen%20-%20Dark%20Theme.png)
 
 ### 🔷 Profile Selection
 
-* Org detection
-* Profile dropdown
-* Extraction progress
+**Light Theme**
 
-### 🧩 Permission Editor
+![Profile Screen - Light Theme](src/assets/screenshots/Profile%20Screen%20-%20Light%20Theme.png)
 
-* Tabbed permission sections
-* Toggle controls
-* Permission tables
+**Dark Theme**
+
+![Profile Screen - Dark Theme](src/assets/screenshots/Profile%20Screen%20-%20Dark%20Theme.png)
 
 ### 🚀 Deploy Confirmation
 
-* Summary of changes
-* Connected App updates
-* Deploy progress modal
+![Confirm Deploy - Light Theme](src/assets/screenshots/Comfirmation%20Window%20-%20Light%20Theme.png)
 
 ---
 
