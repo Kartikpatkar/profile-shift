@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ProfileShift – Salesforce Profile to Permission Set",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Convert Salesforce Profile permissions into deployable Permission Set metadata. Privacy-first, client-side.",
   "icons": {
     "16": "src/assets/icons/icon16.png",
